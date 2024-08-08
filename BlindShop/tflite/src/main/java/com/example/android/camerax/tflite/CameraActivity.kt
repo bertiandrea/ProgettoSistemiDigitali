@@ -182,7 +182,7 @@ class CameraActivity : AppCompatActivity() {
             return@post
         }
         activityCameraBinding.textPrediction.visibility = View.VISIBLE
-        activityCameraBinding.textPrediction.text = "${"%.2f".format(prediction.score)} ${prediction.label}"
+        activityCameraBinding.textPrediction.text = "${"%.0f".format(prediction.score * 100)}%\n${prediction.label}"
     }
 
     private fun speakOut(prediction: ObjectDetectionHelper.ObjectPrediction?) {

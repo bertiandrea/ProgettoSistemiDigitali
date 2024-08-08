@@ -43,7 +43,8 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         android:textAppearance="@style/TextAppearance.AppCompat.Display1"
-        android:visibility="gone" />
+        android:visibility="gone"
+        android:gravity="center" />
 
     <!-- Camera control -->
     <View
