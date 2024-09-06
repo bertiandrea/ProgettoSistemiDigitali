@@ -81,7 +81,7 @@ class CameraActivity : AppCompatActivity() {
         )
     }
     private val detector by lazy {
-        ObjectDetectionHelper(tflite, FileUtil.loadLabels(this, LABELS_PATH))
+        ObjectDetectionHelper(this, tflite)
     }
     private val tfInputSize by lazy {
         val inputIndex = 0
@@ -330,7 +330,7 @@ class CameraActivity : AppCompatActivity() {
 
     companion object {
         private val TAG = CameraActivity::class.java.simpleName
-        private const val ACCURACY_THRESHOLD = 0.7f
+        private const val ACCURACY_THRESHOLD = 0.0f
         private const val MODEL_PATH = "MobileNetV2.tflite"
         private const val LABELS_PATH = "MobileNetV2_labels.txt"
         private const val TEST = false
