@@ -1,37 +1,10 @@
-Mela
-Asparago
-Melanzana
-Avocado
-Banana
-Fungo marrone
-Cavolo
-Carota
-Cetriolo
-Zenzero
-Succo
-Kiwi
-Porro
-Limone
-Lime
-Mango
-Melone
-Latte
-Latte di avena
-Yogurt di avena
-Cipolla
-Arancia
-Frutto della passione
-Pesca
-Pera
-Peperone
-Ananas
-Melograno
-Patata
-Barbabietola rossa
-Pompelmo rosso
-Mandarini
-Panna acida
-Yogurt di soia
-Pomodoro
-Yogurt
-Zucchina
+GoccioleClassiche
+GoccioleCocco
+GoccioleConad
+GoccioleDark
+LatteAzzurro
+LatteBlu
+LatteRosso
+MelaGialla
+MelaRossa
+PinkLady
