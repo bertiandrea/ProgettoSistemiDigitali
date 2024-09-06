@@ -12,13 +12,14 @@ import java.io.InputStreamReader
  */
 class ObjectDetectionHelper(
     private val context: Context,
-    private val tflite: Interpreter
+    private val tflite: Interpreter,
+    labelsPath: String
 ) {
 
     /** Abstraction object that wraps a prediction output in an easy to parse way */
     data class ObjectPrediction(val label: String, val score: Float)
 
-    private val labels: List<String> = loadLabels()
+    private val labels: List<String> = loadLabels(labelsPath)
     private val outputBuffer = arrayOf(FloatArray(labels.size))
 
     @Synchronized
@@ -46,10 +47,10 @@ class ObjectDetectionHelper(
         }
     }
 
-    private fun loadLabels(): List<String> {
+    private fun loadLabels(path: String): List<String> {
         val labels = mutableListOf<String>()
         try {
-            val inputStream = context.assets.open("MobileNetV2_labels.txt")
+            val inputStream = context.assets.open(path)
             BufferedReader(InputStreamReader(inputStream)).use { reader ->
                 reader.forEachLine { line ->
                     labels.add(line)

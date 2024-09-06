@@ -1,10 +1,10 @@
-GoccioleClassiche
-GoccioleCocco
-GoccioleConad
-GoccioleDark
-LatteAzzurro
-LatteBlu
-LatteRosso
-MelaGialla
-MelaRossa
-PinkLady
+Gocciole Classiche
+Gocciole Cocco
+Gocciole Conad
+Gocciole Dark
+Latte Azzurro
+Latte Blu
+Latte Rosso
+Mela Gialla
+Mela Rossa
+Pink Lady

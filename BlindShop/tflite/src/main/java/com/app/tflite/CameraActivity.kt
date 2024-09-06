@@ -81,7 +81,7 @@ class CameraActivity : AppCompatActivity() {
         )
     }
     private val detector by lazy {
-        ObjectDetectionHelper(this, tflite)
+        ObjectDetectionHelper(this, tflite, LABELS_PATH)
     }
     private val tfInputSize by lazy {
         val inputIndex = 0
@@ -184,8 +184,9 @@ class CameraActivity : AppCompatActivity() {
                 return@post
             }
             activityCameraBinding.textPrediction.visibility = View.VISIBLE
-            activityCameraBinding.textPrediction.text =
-                "${"%.0f".format(prediction.score * 100)}%\n${prediction.label}"
+            activityCameraBinding.textPrediction.text = prediction.label.uppercase()
+            //activityCameraBinding.textPrediction.text =
+            //    "${"%.0f".format(prediction.score * 100)}%\n${prediction.label}"
         }
 
     private fun speakOut(prediction: ObjectDetectionHelper.ObjectPrediction?) {
@@ -197,7 +198,7 @@ class CameraActivity : AppCompatActivity() {
     }
 
     private fun testModelWithImage(): Bitmap {
-        val inputStream = assets.open("Banana.jpg")
+        val inputStream = assets.open("Golden-Delicious.jpg")
         val bitmapBuffer = BitmapFactory.decodeStream(inputStream)
         val tfImage = tfImageProcessor.process(tfImageBuffer.apply { load(bitmapBuffer) })
         val predictions = synchronized(detector) { detector.predict(tfImage) }
@@ -235,47 +236,59 @@ class CameraActivity : AppCompatActivity() {
                 .setTargetAspectRatio(AspectRatio.RATIO_4_3)
                 .setTargetRotation(activityCameraBinding.viewFinder.display.rotation)
                 .build()
-            // Set up the image analysis use case which will process frames in real time
-            val imageAnalysis = ImageAnalysis.Builder()
-                .setTargetAspectRatio(AspectRatio.RATIO_4_3)
-                .setTargetRotation(activityCameraBinding.viewFinder.display.rotation)
-                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
-                .build()
-            //////////////////////////////////////////////////////////////////////////////////
-            imageAnalysis.setAnalyzer(executor, ImageAnalysis.Analyzer { image ->
-                if (!::bitmapBuffer.isInitialized) {
-                    // The image rotation and RGB image buffer are initialized only once the analyzer has started running
-                    imageRotationDegrees = image.imageInfo.rotationDegrees
-                    bitmapBuffer =
-                        Bitmap.createBitmap(image.width, image.height, Bitmap.Config.ARGB_8888)
-                }
-                // Early exit: image analysis is in paused state
-                if (pauseAnalysis) {
-                    image.close()
-                    return@Analyzer
-                }
-                // Copy out RGB bits to our shared buffer
-                image.use { bitmapBuffer.copyPixelsFromBuffer(image.planes[0].buffer) }
-                /////////////////////////////////////////////////////////////////////////////
-                // Process the image in Tensorflow
-                val tfImage = tfImageProcessor.process(tfImageBuffer.apply { load(bitmapBuffer) })
-                // Perform the object detection for the current frame
-                val predictions = synchronized(detector) { detector.predict(tfImage) }
-                val bestPrediction = predictions.maxByOrNull { it.score }
-                reportPrediction(bestPrediction)
-            })
-            //////////////////////////////////////////////////////////////////////////////////////////////////
-            // Create a new camera selector each time, enforcing lens facing
-            val cameraSelector = CameraSelector.Builder().requireLensFacing(lensFacing).build()
-            // Apply declared configs to CameraX using the same lifecycle owner
-            cameraProvider.unbindAll()
-            cameraProvider.bindToLifecycle(
-                this as LifecycleOwner,
-                cameraSelector,
-                preview,
-                imageAnalysis
-            )
+            if(CONSTANT_REPORT) {
+                // Set up the image analysis use case which will process frames in real time
+                val imageAnalysis = ImageAnalysis.Builder()
+                    .setTargetAspectRatio(AspectRatio.RATIO_4_3)
+                    .setTargetRotation(activityCameraBinding.viewFinder.display.rotation)
+                    .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                    .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
+                    .build()
+                //////////////////////////////////////////////////////////////////////////////////
+                imageAnalysis.setAnalyzer(executor, ImageAnalysis.Analyzer { image ->
+                    if (!::bitmapBuffer.isInitialized) {
+                        // The image rotation and RGB image buffer are initialized only once the analyzer has started running
+                        imageRotationDegrees = image.imageInfo.rotationDegrees
+                        bitmapBuffer =
+                            Bitmap.createBitmap(image.width, image.height, Bitmap.Config.ARGB_8888)
+                    }
+                    // Early exit: image analysis is in paused state
+                    if (pauseAnalysis) {
+                        image.close()
+                        return@Analyzer
+                    }
+                    // Copy out RGB bits to our shared buffer
+                    image.use { bitmapBuffer.copyPixelsFromBuffer(image.planes[0].buffer) }
+                    /////////////////////////////////////////////////////////////////////////////
+                    // Process the image in Tensorflow
+                    val tfImage =
+                        tfImageProcessor.process(tfImageBuffer.apply { load(bitmapBuffer) })
+                    // Perform the object detection for the current frame
+                    val predictions = synchronized(detector) { detector.predict(tfImage) }
+                    val bestPrediction = predictions.maxByOrNull { it.score }
+                    reportPrediction(bestPrediction)
+                })
+                //////////////////////////////////////////////////////////////////////////////////////////////////
+                // Create a new camera selector each time, enforcing lens facing
+                val cameraSelector = CameraSelector.Builder().requireLensFacing(lensFacing).build()
+                // Apply declared configs to CameraX using the same lifecycle owner
+                cameraProvider.unbindAll()
+                cameraProvider.bindToLifecycle(
+                    this as LifecycleOwner,
+                    cameraSelector,
+                    preview,
+                    imageAnalysis
+                )
+            } else {
+                // Create a new camera selector each time, enforcing lens facing
+                val cameraSelector = CameraSelector.Builder().requireLensFacing(lensFacing).build()
+                cameraProvider.unbindAll()
+                cameraProvider.bindToLifecycle(
+                    this as LifecycleOwner,
+                    cameraSelector,
+                    preview
+                )
+            }
             // Use the camera object to link our preview use case with the view
             preview.setSurfaceProvider(activityCameraBinding.viewFinder.surfaceProvider)
         }, ContextCompat.getMainExecutor(this))
@@ -330,10 +343,11 @@ class CameraActivity : AppCompatActivity() {
 
     companion object {
         private val TAG = CameraActivity::class.java.simpleName
-        private const val ACCURACY_THRESHOLD = 0.0f
+        private const val ACCURACY_THRESHOLD = 0.75f
         private const val MODEL_PATH = "MobileNetV2.tflite"
         private const val LABELS_PATH = "MobileNetV2_labels.txt"
         private const val TEST = false
         private const val SHOW_PROCESSED_IMAGE = true
+        private const val CONSTANT_REPORT = false
     }
 }
