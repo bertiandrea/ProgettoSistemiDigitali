@@ -11,6 +11,7 @@ import android.os.Bundle
 import android.speech.tts.TextToSpeech
 import android.util.Log
 import android.util.Size
+import android.view.MotionEvent
 import android.view.View
 import androidx.appcompat.app.AppCompatActivity
 import androidx.camera.core.AspectRatio
@@ -20,6 +21,7 @@ import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.core.view.GestureDetectorCompat
 import androidx.lifecycle.LifecycleOwner
 import com.app.tflite.databinding.ActivityCameraBinding
 import org.tensorflow.lite.DataType
@@ -43,18 +45,18 @@ class CameraActivity : AppCompatActivity() {
     private lateinit var activityCameraBinding: ActivityCameraBinding
     private lateinit var bitmapBuffer: Bitmap
     private lateinit var textToSpeech: TextToSpeech
+    private lateinit var gestureDetector: GestureDetectorCompat
 
     private val executor = Executors.newSingleThreadExecutor()
     private val permissions = listOf(Manifest.permission.CAMERA)
     private val permissionsRequestCode = Random.nextInt(0, 10000)
 
-    private var lensFacing: Int = CameraSelector.LENS_FACING_BACK
-    private val isFrontFacing get() = (lensFacing == CameraSelector.LENS_FACING_FRONT)
-
     private var pauseAnalysis = false
     private var imageRotationDegrees: Int = 0
     private val tfImageBuffer =
         TensorImage(DataType.FLOAT32) //DataType.FLOAT32 or DataType.UINT8 depending on MODEL
+
+    private var bestPrediction: ObjectDetectionHelper.ObjectPrediction? = null
 
     private val tfImageProcessor by lazy {
         val cropSize = minOf(bitmapBuffer.width, bitmapBuffer.height)
@@ -81,7 +83,7 @@ class CameraActivity : AppCompatActivity() {
         )
     }
     private val detector by lazy {
-        ObjectDetectionHelper(this, tflite, LABELS_PATH)
+        ObjectDetectionHelper(this, tflite, LABELS_PATH, DESCRIPTION_WEIGHT_PATH)
     }
     private val tfInputSize by lazy {
         val inputIndex = 0
@@ -90,12 +92,75 @@ class CameraActivity : AppCompatActivity() {
     }
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    /** Declare and bind preview and analysis use cases */
+    @SuppressLint("UnsafeExperimentalUsageError")
+    private fun bindCameraUseCases() = activityCameraBinding.viewFinder.post {
+        val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
+        cameraProviderFuture.addListener({
+            // Camera provider is now guaranteed to be available
+            val cameraProvider = cameraProviderFuture.get()
+            // Set up the view finder use case to display camera preview
+            val preview = Preview.Builder()
+                .setTargetAspectRatio(AspectRatio.RATIO_4_3)
+                .setTargetRotation(activityCameraBinding.viewFinder.display.rotation)
+                .build()
+            // Set up the image analysis use case which will process frames in real time
+            val imageAnalysis = ImageAnalysis.Builder()
+                .setTargetAspectRatio(AspectRatio.RATIO_4_3)
+                .setTargetRotation(activityCameraBinding.viewFinder.display.rotation)
+                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
+                .build()
+            //////////////////////////////////////////////////////////////////////////////////
+            imageAnalysis.setAnalyzer(executor, ImageAnalysis.Analyzer { image ->
+                if (!::bitmapBuffer.isInitialized) {
+                    // The image rotation and RGB image buffer are initialized only once the analyzer has started running
+                    imageRotationDegrees = image.imageInfo.rotationDegrees
+                    bitmapBuffer =
+                        Bitmap.createBitmap(image.width, image.height, Bitmap.Config.ARGB_8888)
+                }
+                // Early exit: image analysis is in paused state
+                if (pauseAnalysis) {
+                    image.close()
+                    return@Analyzer
+                }
+                // Copy out RGB bits to our shared buffer
+                image.use { bitmapBuffer.copyPixelsFromBuffer(image.planes[0].buffer) }
+                /////////////////////////////////////////////////////////////////////////////
+                if(CONSTANT_REPORT) {
+                    // Process the image in Tensorflow
+                    val tfImage = tfImageProcessor.process(tfImageBuffer.apply { load(bitmapBuffer) })
+                    // Perform the object detection for the current frame
+                    val predictions = synchronized(detector) { detector.predict(tfImage) }
+                    val bestPrediction = predictions.maxByOrNull { it.score }
+                    reportPrediction(bestPrediction)
+                }
+            })
+            //////////////////////////////////////////////////////////////////////////////////////////////////
+            cameraProvider.unbindAll()
+            cameraProvider.bindToLifecycle(
+                this as LifecycleOwner,
+                CameraSelector.DEFAULT_BACK_CAMERA,
+                preview,
+                imageAnalysis
+            )
+            // Use the camera object to link our preview use case with the view
+            preview.setSurfaceProvider(activityCameraBinding.viewFinder.surfaceProvider)
+        }, ContextCompat.getMainExecutor(this))
+    }
+
+    @SuppressLint("ClickableViewAccessibility")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         activityCameraBinding = ActivityCameraBinding.inflate(layoutInflater)
         setContentView(activityCameraBinding.root)
-        //////////////////////////////////////////////////////////////////////////////
-        // Inizializzazione di TextToSpeech
+
+        initializeTextToSpeech()
+        initializeGestureDetector()
+        initializeTouchListener()
+    }
+
+    private fun initializeTextToSpeech() {
         textToSpeech = TextToSpeech(this) { status ->
             if (status == TextToSpeech.SUCCESS) {
                 textToSpeech.language = Locale.ITALIAN
@@ -103,47 +168,27 @@ class CameraActivity : AppCompatActivity() {
                 Log.e(TAG, "TextToSpeech initialization failed")
             }
         }
-        //////////////////////////////////////////////////////////////////////////////
-        activityCameraBinding.fullscreenTouchCapture.setOnClickListener { it ->
-            // Disable all camera controls
-            it.isEnabled = false
-            if (pauseAnalysis) {
-                textToSpeech.speak("Analizzo", TextToSpeech.QUEUE_FLUSH, null, null)
-                // If image analysis is in paused state, resume it
-                pauseAnalysis = false
-                activityCameraBinding.imagePredicted.visibility = View.GONE
-                if(!CONSTANT_REPORT) {
-                    activityCameraBinding.textPrediction.visibility = View.GONE
-                }
-            } else {
-                // Otherwise, pause image analysis and freeze image
-                pauseAnalysis = true
-                /////////////////////////////////////////////////////////////////////////////////
-                val tfImage =
-                    tfImageProcessor.process(tfImageBuffer.apply { load(bitmapBuffer) }) //Shared Buffer
-                val predictions = synchronized(detector) { detector.predict(tfImage) }
-                val bestPrediction = predictions.maxByOrNull { it.score }
-                reportPrediction(bestPrediction)
-                speakOut(bestPrediction)
-                if (TEST) {
-                    val bitmapImage = testModelWithImage()
-                    activityCameraBinding.imagePredicted.setImageBitmap(bitmapImage)
-                    activityCameraBinding.imagePredicted.visibility = View.VISIBLE
-                } else {
-                    if (SHOW_PROCESSED_IMAGE) {
-                        val bitmapProcessed = convertTfImageToBitmap(tfImage)
-                        activityCameraBinding.imagePredicted.setImageBitmap(bitmapProcessed)
-                        activityCameraBinding.imagePredicted.visibility = View.VISIBLE
-                    } else {
-                        val bitmapRotated =
-                            rotateAndMirrorBitmap(bitmapBuffer, imageRotationDegrees, isFrontFacing)
-                        activityCameraBinding.imagePredicted.setImageBitmap(bitmapRotated)
-                        activityCameraBinding.imagePredicted.visibility = View.VISIBLE
-                    }
-                }
+    }
+
+    private fun initializeGestureDetector() {
+        val swipeListener = object : SwipeGestureListener() {
+            override fun onSwipeLeft() {
+                handleSwipeLeft()
             }
-            // Re-enable camera controls
-            it.isEnabled = true
+            override fun onSwipeRight() {
+                handleSwipeRight()
+            }
+        }
+        gestureDetector = GestureDetectorCompat(this, swipeListener)
+    }
+
+    @SuppressLint("ClickableViewAccessibility")
+    private fun initializeTouchListener() {
+        activityCameraBinding.fullscreenTouchCapture.setOnTouchListener { _, event ->
+            gestureDetector.onTouchEvent(event)
+        }
+        activityCameraBinding.fullscreenTouchCapture.setOnClickListener {
+            handleTouchClick(it)
         }
     }
 
@@ -167,11 +212,7 @@ class CameraActivity : AppCompatActivity() {
         return bitmapProcessed
     }
 
-    private fun rotateAndMirrorBitmap(
-        bitmap: Bitmap,
-        rotationDegrees: Int,
-        isFrontFacing: Boolean
-    ): Bitmap {
+    private fun rotateAndMirrorBitmap(bitmap: Bitmap, rotationDegrees: Int, isFrontFacing: Boolean): Bitmap {
         val matrix = Matrix().apply {
             postRotate(rotationDegrees.toFloat())
             if (isFrontFacing) postScale(-1f, 1f)
@@ -227,71 +268,71 @@ class CameraActivity : AppCompatActivity() {
         return bitmapProcessed
     }
 
-    /** Declare and bind preview and analysis use cases */
-    @SuppressLint("UnsafeExperimentalUsageError")
-    private fun bindCameraUseCases() = activityCameraBinding.viewFinder.post {
-        val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
-        cameraProviderFuture.addListener({
-            // Camera provider is now guaranteed to be available
-            val cameraProvider = cameraProviderFuture.get()
-            // Set up the view finder use case to display camera preview
-            val preview = Preview.Builder()
-                .setTargetAspectRatio(AspectRatio.RATIO_4_3)
-                .setTargetRotation(activityCameraBinding.viewFinder.display.rotation)
-                .build()
-            // Set up the image analysis use case which will process frames in real time
-            val imageAnalysis = ImageAnalysis.Builder()
-                .setTargetAspectRatio(AspectRatio.RATIO_4_3)
-                .setTargetRotation(activityCameraBinding.viewFinder.display.rotation)
-                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
-                .build()
-            //////////////////////////////////////////////////////////////////////////////////
-            imageAnalysis.setAnalyzer(executor, ImageAnalysis.Analyzer { image ->
-                if (!::bitmapBuffer.isInitialized) {
-                    // The image rotation and RGB image buffer are initialized only once the analyzer has started running
-                    imageRotationDegrees = image.imageInfo.rotationDegrees
-                    bitmapBuffer =
-                        Bitmap.createBitmap(image.width, image.height, Bitmap.Config.ARGB_8888)
+    private fun handleSwipeLeft() {
+        if (pauseAnalysis) {
+            Log.e(TAG, "handleSwipeLeft")
+            if (bestPrediction == null || bestPrediction!!.score < ACCURACY_THRESHOLD || bestPrediction!!.weight == "") {
+                textToSpeech.speak("Peso non disponibile", TextToSpeech.QUEUE_FLUSH, null, null)
+            } else {
+                textToSpeech.speak(bestPrediction!!.weight , TextToSpeech.QUEUE_FLUSH, null, null)
+            }
+        }
+    }
+
+    private fun handleSwipeRight() {
+        if (pauseAnalysis) {
+            Log.e(TAG, "handleSwipeRight")
+            if (bestPrediction == null || bestPrediction!!.score < ACCURACY_THRESHOLD || bestPrediction!!.description == "") {
+                textToSpeech.speak("Descrizione non disponibile", TextToSpeech.QUEUE_FLUSH, null, null)
+            } else {
+                textToSpeech.speak(bestPrediction!!.description , TextToSpeech.QUEUE_FLUSH, null, null)
+            }
+        }
+    }
+
+    private fun handleTouchClick(view: View) {
+        Log.e(TAG, "handleTouchClick")
+        view.isEnabled = false
+        if (pauseAnalysis) {
+            textToSpeech.speak("Analizzo", TextToSpeech.QUEUE_FLUSH, null, null)
+            pauseAnalysis = false
+            activityCameraBinding.imagePredicted.visibility = View.GONE
+            if (!CONSTANT_REPORT) {
+                activityCameraBinding.textPrediction.visibility = View.GONE
+            }
+        } else {
+            val tfImage = tfImageProcessor.process(tfImageBuffer.apply { load(bitmapBuffer) })
+            val predictions = synchronized(detector) { detector.predict(tfImage) }
+            bestPrediction = predictions.maxByOrNull { it.score }
+            pauseAnalysis = true
+            reportPrediction(bestPrediction)
+            speakOut(bestPrediction)
+            if (TEST) {
+                val bitmapImage = testModelWithImage()
+                activityCameraBinding.imagePredicted.setImageBitmap(bitmapImage)
+            } else {
+                val bitmap = if (SHOW_PROCESSED_IMAGE) {
+                    convertTfImageToBitmap(tfImage)
+                } else {
+                    rotateAndMirrorBitmap(bitmapBuffer, imageRotationDegrees, false)
                 }
-                // Early exit: image analysis is in paused state
-                if (pauseAnalysis) {
-                    image.close()
-                    return@Analyzer
-                }
-                // Copy out RGB bits to our shared buffer
-                image.use { bitmapBuffer.copyPixelsFromBuffer(image.planes[0].buffer) }
-                /////////////////////////////////////////////////////////////////////////////
-                if(CONSTANT_REPORT) {
-                    // Process the image in Tensorflow
-                    val tfImage = tfImageProcessor.process(tfImageBuffer.apply { load(bitmapBuffer) })
-                    // Perform the object detection for the current frame
-                    val predictions = synchronized(detector) { detector.predict(tfImage) }
-                    val bestPrediction = predictions.maxByOrNull { it.score }
-                    reportPrediction(bestPrediction)
-                }
-            })
-            //////////////////////////////////////////////////////////////////////////////////////////////////
-            // Create a new camera selector each time, enforcing lens facing
-            val cameraSelector = CameraSelector.Builder().requireLensFacing(lensFacing).build()
-            // Apply declared configs to CameraX using the same lifecycle owner
-            cameraProvider.unbindAll()
-            cameraProvider.bindToLifecycle(
-                this as LifecycleOwner,
-                cameraSelector,
-                preview,
-                imageAnalysis
-            )
-            // Use the camera object to link our preview use case with the view
-            preview.setSurfaceProvider(activityCameraBinding.viewFinder.surfaceProvider)
-        }, ContextCompat.getMainExecutor(this))
+                activityCameraBinding.imagePredicted.setImageBitmap(bitmap)
+            }
+            activityCameraBinding.imagePredicted.visibility = View.VISIBLE
+        }
+        view.isEnabled = true
     }
 
     override fun onDestroy() {
+        super.onDestroy()
         // Terminate all outstanding analyzing jobs (if there is any).
-        executor.apply {
-            shutdown()
-            awaitTermination(1000, TimeUnit.MILLISECONDS)
+        executor.shutdown()
+        try {
+            if (!executor.awaitTermination(1, TimeUnit.SECONDS)) {
+                executor.shutdownNow()
+            }
+        } catch (e: InterruptedException) {
+            executor.shutdownNow()
         }
         // Release TFLite resources.
         tflite.close()
@@ -299,7 +340,6 @@ class CameraActivity : AppCompatActivity() {
         // Release TextToSpeech resources.
         textToSpeech.stop()
         textToSpeech.shutdown()
-        super.onDestroy()
     }
 
     override fun onResume() {
@@ -316,11 +356,7 @@ class CameraActivity : AppCompatActivity() {
         }
     }
 
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray
-    ) {
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == permissionsRequestCode && hasPermissions(this)) {
             bindCameraUseCases()
@@ -329,7 +365,6 @@ class CameraActivity : AppCompatActivity() {
         }
     }
 
-    /** Convenience method used to check if all permissions required by this app are granted */
     private fun hasPermissions(context: Context) = permissions.all {
         ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
     }
@@ -339,8 +374,10 @@ class CameraActivity : AppCompatActivity() {
         private const val ACCURACY_THRESHOLD = 0.80f
         private const val MODEL_PATH = "MobileNetV2.tflite"
         private const val LABELS_PATH = "MobileNetV2_labels.txt"
+        private const val DESCRIPTION_WEIGHT_PATH = "MobileNetV2_descriptions.txt"
         private const val TEST = false
         private const val SHOW_PROCESSED_IMAGE = false
         private const val CONSTANT_REPORT = false
+        private const val QUANTIZED = false
     }
 }

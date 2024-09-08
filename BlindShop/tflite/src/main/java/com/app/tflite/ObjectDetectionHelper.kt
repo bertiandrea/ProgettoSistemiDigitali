@@ -13,13 +13,22 @@ import java.io.InputStreamReader
 class ObjectDetectionHelper(
     private val context: Context,
     private val tflite: Interpreter,
-    labelsPath: String
+    labelsPath: String,
+    descriptionAndWeightPath: String
 ) {
 
     /** Abstraction object that wraps a prediction output in an easy to parse way */
-    data class ObjectPrediction(val label: String, val score: Float)
+    data class ObjectPrediction(
+        val label: String,
+        val score: Float,
+        val weight: String,
+        val description: String
+    )
 
     private val labels: List<String> = loadLabels(labelsPath)
+    private val weights: List<String> = loadWeights(descriptionAndWeightPath)
+    private val descriptions: List<String> = loadDescription(descriptionAndWeightPath)
+
     private val outputBuffer = arrayOf(FloatArray(labels.size))
 
     @Synchronized
@@ -30,17 +39,19 @@ class ObjectDetectionHelper(
             val predictions = outputBuffer[0].mapIndexed { index, score ->
                 ObjectPrediction(
                     label = labels[index],
-                    score = score
+                    score = score,
+                    weight = weights[index],
+                    description = descriptions[index]
                 )
             }
 
             val sortedPredictions = predictions.sortedByDescending { it.score }
             val predictionsString = sortedPredictions.joinToString(separator = "\n") {
-                "Label = ${it.label}, Score = ${it.score}"
+                "Label = ${it.label}, Score = ${it.score}, Peso = ${it.weight}, Desc = ${it.description}"
             }
             Log.d("ObjectDetectionHelper", "Sorted predictions:\n$predictionsString")
 
-            sortedPredictions
+            return sortedPredictions
         } catch (e: Exception) {
             Log.e("ObjectDetectionHelper", "Error during prediction: ", e)
             emptyList() // Return an empty list in case of an error
@@ -60,5 +71,35 @@ class ObjectDetectionHelper(
             Log.e("ObjectDetectionHelper", "Error loading labels: ", e)
         }
         return labels
+    }
+
+    private fun loadWeights(path: String): List<String> {
+        val weights = mutableListOf<String>()
+        try {
+            val inputStream = context.assets.open(path)
+            BufferedReader(InputStreamReader(inputStream)).use { reader ->
+                reader.forEachLine { line ->
+                    weights.add(line.split('/')[1])
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("ObjectDetectionHelper", "Error loading weights: ", e)
+        }
+        return weights
+    }
+
+    private fun loadDescription(path: String): List<String> {
+        val descriptions = mutableListOf<String>()
+        try {
+            val inputStream = context.assets.open(path)
+            BufferedReader(InputStreamReader(inputStream)).use { reader ->
+                reader.forEachLine { line ->
+                    descriptions.add(line.split('/')[2])
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("ObjectDetectionHelper", "Error loading descriptions: ", e)
+        }
+        return descriptions
     }
 }
