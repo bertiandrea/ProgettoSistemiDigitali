@@ -242,18 +242,34 @@ class CameraActivity : AppCompatActivity() {
     }
 
     private fun testModelWithImage(): Bitmap {
-        val inputStream = assets.open("Golden-Delicious.jpg")
+        val inputStream = assets.open("testImage.jpg")
         val bitmapBuffer = BitmapFactory.decodeStream(inputStream)
-        val tfImage = tfImageProcessor.process(tfImageBuffer.apply { load(bitmapBuffer) })
+
+        // Esegui il resize dell'immagine
+        val targetWidth = 224  // Imposta la larghezza desiderata
+        val targetHeight = 224 // Imposta l'altezza desiderata
+        val resizedBitmap = Bitmap.createScaledBitmap(bitmapBuffer, targetWidth, targetHeight, true)
+
+        // Crea una matrice per la rotazione di 90 gradi
+        val matrix = Matrix()
+        matrix.postRotate(-90f)  // Ruota di 90 gradi in senso antiorario
+
+        // Applica la rotazione alla bitmap ridimensionata
+        val rotatedBitmap = Bitmap.createBitmap(resizedBitmap, 0, 0, resizedBitmap.width, resizedBitmap.height, matrix, true)
+
+        // Pre-elabora l'immagine ruotata
+        val tfImage = tfImageProcessor.process(tfImageBuffer.apply { load(rotatedBitmap) })
         val predictions = synchronized(detector) { detector.predict(tfImage) }
         val bestPrediction = predictions.maxByOrNull { it.score }
         Log.d("testModelWithImage", "TEST BEST PREDICTION: $bestPrediction")
+
         ///////////////////////////////////////////////////////////////////////////
         // Convertire il risultato preprocessato in un Bitmap
         val width = tfImage.width
         val height = tfImage.height
         val pixelData = FloatArray(width * height * 3) // RGB
         tfImage.tensorBuffer.floatArray.copyInto(pixelData)
+
         // Convert float RGB data to ARGB_8888 format
         val pixels = IntArray(width * height)
         for (i in pixels.indices) {
@@ -262,6 +278,7 @@ class CameraActivity : AppCompatActivity() {
             val b = (((pixelData[i * 3 + 2] + 1) / 2) * 255).toInt().coerceIn(0, 255)
             pixels[i] = (0xFF shl 24) or (r shl 16) or (g shl 8) or b // ARGB
         }
+
         // Crea e mostra il Bitmap
         val bitmapProcessed = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         bitmapProcessed.setPixels(pixels, 0, width, 0, 0, width, height)
@@ -301,16 +318,22 @@ class CameraActivity : AppCompatActivity() {
                 activityCameraBinding.textPrediction.visibility = View.GONE
             }
         } else {
-            val tfImage = tfImageProcessor.process(tfImageBuffer.apply { load(bitmapBuffer) })
-            val predictions = synchronized(detector) { detector.predict(tfImage) }
-            bestPrediction = predictions.maxByOrNull { it.score }
-            pauseAnalysis = true
-            reportPrediction(bestPrediction)
-            speakOut(bestPrediction)
             if (TEST) {
                 val bitmapImage = testModelWithImage()
                 activityCameraBinding.imagePredicted.setImageBitmap(bitmapImage)
+                val tfImage = tfImageProcessor.process(tfImageBuffer.apply { load(bitmapImage) })
+                val predictions = synchronized(detector) { detector.predict(tfImage) }
+                bestPrediction = predictions.maxByOrNull { it.score }
+                pauseAnalysis = true
+                reportPrediction(bestPrediction)
+                speakOut(bestPrediction)
             } else {
+                val tfImage = tfImageProcessor.process(tfImageBuffer.apply { load(bitmapBuffer) })
+                val predictions = synchronized(detector) { detector.predict(tfImage) }
+                bestPrediction = predictions.maxByOrNull { it.score }
+                pauseAnalysis = true
+                reportPrediction(bestPrediction)
+                speakOut(bestPrediction)
                 val bitmap = if (SHOW_PROCESSED_IMAGE) {
                     convertTfImageToBitmap(tfImage)
                 } else {
@@ -371,13 +394,12 @@ class CameraActivity : AppCompatActivity() {
 
     companion object {
         private val TAG = CameraActivity::class.java.simpleName
-        private const val ACCURACY_THRESHOLD = 0.80f
+        private const val ACCURACY_THRESHOLD = 0.50f
         private const val MODEL_PATH = "MobileNetV2.tflite"
         private const val LABELS_PATH = "MobileNetV2_labels.txt"
         private const val DESCRIPTION_WEIGHT_PATH = "MobileNetV2_descriptions.txt"
         private const val TEST = false
         private const val SHOW_PROCESSED_IMAGE = false
         private const val CONSTANT_REPORT = false
-        private const val QUANTIZED = false
     }
 }
