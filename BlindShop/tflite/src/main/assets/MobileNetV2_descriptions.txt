@@ -1,10 +1,26 @@
+Acqua Frizzante/Mezzo Litro/Acqua minerale frizzante, ideale per dissetarsi durante i pasti.
+Acqua Naturale/Mezzo Litro/Acqua minerale naturale, perfetta per idratarsi in ogni momento della giornata.
+Coca Cola Classica/330 ml/La classica bevanda gassata al gusto di cola, amata da generazioni.
+Coca Cola Zero/330 ml/Versione senza zucchero della tradizionale Coca Cola, con lo stesso gusto intenso.
+Cola Conad/330 ml/Bevanda gassata al gusto di cola, marchio Conad, per un'opzione alternativa e conveniente.
 Gocciole Classiche/500 grammi/Farina di frumento, zucchero, cioccolato 14 virgola 6 percento, olio di girasole, burro, sciroppo di glucosio, amido di frumento, agenti lievitanti (carbonato acido di sodio, carbonato acido d’ammonio), sale, aroma vanillina. Può contenere tracce di Frutta a guscio, Senape, Sesamo e Uova. I biscotti Pavesi sono preparati senza l’utilizzo di conservanti. Si raccomanda di tenerli in luogo fresco e asciutto.
 Gocciole Cocco/500 grammi/Farina di frumento, zucchero, cioccolato 14 virgola 6 percento, olio di girasole, burro, sciroppo di glucosio, amido di frumento, agenti lievitanti (carbonato acido di sodio, carbonato acido d’ammonio), sale, aroma vanillina. Può contenere tracce di Frutta a guscio, Senape, Sesamo e Uova. I biscotti Pavesi sono preparati senza l’utilizzo di conservanti. Si raccomanda di tenerli in luogo fresco e asciutto.
 Gocciole Conad/500 grammi/Farina di frumento, zucchero, cioccolato 14 virgola 6 percento, olio di girasole, burro, sciroppo di glucosio, amido di frumento, agenti lievitanti (carbonato acido di sodio, carbonato acido d’ammonio), sale, aroma vanillina. Può contenere tracce di Frutta a guscio, Senape, Sesamo e Uova. Si raccomanda di tenerli in luogo fresco e asciutto.
 Gocciole Dark/500 grammi/Farina di frumento, zucchero, cioccolato 14 virgola 6 percento, olio di girasole, burro, sciroppo di glucosio, amido di frumento, agenti lievitanti (carbonato acido di sodio, carbonato acido d’ammonio), sale, aroma vanillina. Può contenere tracce di Frutta a guscio, Senape, Sesamo e Uova. I biscotti Pavesi sono preparati senza l’utilizzo di conservanti. Si raccomanda di tenerli in luogo fresco e asciutto.
-Latte Azzurro/Un litro/Il Latte UHT Parzialmente Scremato Buono, dal Gusto Leggero Conad, è un latte di ottima qualità proveniente esclusivamente da allevamenti italiani e il suo gusto leggero.
-Latte Blu/Un litro/Il Latte UHT Scremato Buono, dal Gusto Leggero Conad, è un latte di ottima qualità proveniente esclusivamente da allevamenti italiani e il suo gusto leggero.
-Latte Rosso/0virgola5 litri/Il Latte UHT Intero Buono, dal Gusto Leggero Conad, è un latte di ottima qualità proveniente esclusivamente da allevamenti italiani e il suo gusto leggero.
-Mela Gialla//
-Mela Rossa//
-Pink Lady//
+Latte Azzurro/Un litro/Il Latte UHT Parzialmente Scremato Buono dal Gusto Leggero Conad è un latte di ottima qualità proveniente esclusivamente da allevamenti italiani e il suo gusto leggero.
+Latte Blu/Un litro/Il Latte UHT Scremato Buono dal Gusto Leggero Conad è un latte di ottima qualità proveniente esclusivamente da allevamenti italiani e il suo gusto leggero.
+Latte Rosso/Un litro/Il Latte UHT Intero Buono dal Gusto Leggero Conad è un latte di ottima qualità proveniente esclusivamente da allevamenti italiani e il suo gusto leggero.
+Mela Gialla//Mela dal sapore dolce e dalla buccia liscia e gialla, ideale per spuntini o dolci.
+Mela Rossa//Mela croccante e succosa con buccia rossa, ottima da mangiare fresca o come ingrediente in ricette.
+Pane Bianco/500 grammi/Pane soffice e leggero, adatto per panini o toast.
+Pane Cereali/500 grammi/Pane ricco di fibre e cereali, ideale per una dieta bilanciata.
+Pane Grano Duro/500 grammi/Pane rustico e corposo, perfetto per accompagnare zuppe o pietanze sostanziose.
+Pane Integrale/500 grammi/Pane ricco di fibre, fatto con farina integrale, ottimo per una dieta salutare.
+Philadelphia Classico/250 grammi/Formaggio spalmabile cremoso dal gusto delicato, adatto a molte ricette.
+Philadelphia Conad/250 grammi/Formaggio spalmabile cremoso a marchio Conad, simile alla versione classica.
+Philadelphia Erbette/250 grammi/Formaggio spalmabile aromatizzato con erbe, ideale per spuntini saporiti.
+Philadelphia Salmone/250 grammi/Formaggio spalmabile arricchito con salmone affumicato, perfetto per tartine e snack.
+Pink Lady//Mela dolce e croccante, caratterizzata dalla sua buccia rosata, perfetta da gustare in ogni momento.
+The Limone/Mezzo Litro/Bevanda dissetante al gusto di tè e limone, perfetta da gustare fredda.
+The Pesca/Mezzo Litro/Bevanda dissetante al gusto di tè e limone, perfetta da gustare fredda.
+The Verde/Mezzo Litro/Bevanda al gusto di tè verde, leggera e rinfrescante, ideale per ogni momento della giornata.

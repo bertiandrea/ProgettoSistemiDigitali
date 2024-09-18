@@ -1,3 +1,8 @@
+Acqua Frizzante
+Acqua Naturale
+Coca Cola Classica
+Coca Cola Zero
+Cola Conad
 Gocciole Classiche
 Gocciole Cocco
 Gocciole Conad
@@ -7,4 +12,15 @@ Latte Blu
 Latte Rosso
 Mela Gialla
 Mela Rossa
+Pane Bianco
+Pane Cereali
+Pane Grano Duro
+Pane Integrale
+Philadelphia Classico
+Philadelphia Conad
+Philadelphia Erbette
+Philadelphia Salmone
 Pink Lady
+The Limone
+The Pesca
+The Verde
